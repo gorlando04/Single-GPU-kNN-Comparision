@@ -187,10 +187,15 @@ def IVFFlat_knn(data,k):
     t0 = time()
     #The metric can be changed
     index = faiss.GpuIndexIVFFlat(res, d, nlist, faiss.METRIC_L2,config)
-    if n > int(6e6):
-        index.nprobe = 30
+    nprobe = 0
+    if n >= int(5e6):
+        nprobe = 20
+    elif n == int(3e6):
+        nprobe = 32
     else:
-        index.nprobe = 40
+        nprobe =  40
+    
+    index.setNumProbes(nprobe)
     index.train(data)
     index.add(data)
     _, indices = index.search(data, k)
@@ -202,8 +207,8 @@ def IVFFlat_knn(data,k):
 def IVFSQ_knn(data,k):
 
     n, d = data.shape
-    nlist = 5000
-    qtype = faiss.ScalarQuantizer.QT_4bit
+    nlist = 4096
+    qtype = faiss.ScalarQuantizer.QT_8bit
     metric = faiss.METRIC_L2
 
     # we need only a StandardGpuResources per GPU
@@ -215,10 +220,15 @@ def IVFSQ_knn(data,k):
     #The metric can be changed
     index = faiss.GpuIndexIVFScalarQuantizer(res, d, nlist,
     qtype,faiss.METRIC_L2,True,config)
-    if n > int(6e6):
-        index.nprobe = 30
+    nprobe = 0
+    if n >= int(5e6):
+        nprobe = 20
+    elif n == int(3e6):
+        nprobe = 32
     else:
-        index.nprobe = 40
+        nprobe =  40
+    
+    index.setNumProbes(nprobe)
     index.train(data)
     index.add(data)
     _, indices = index.search(data, k)
@@ -240,7 +250,7 @@ def IVFPQ_knn(data,k):
 
     index = faiss.GpuIndexFlatL2(res, d, flat_config)    
 
-    M_list = [2,4,8,16,32,64]
+    M_list = [1, 2, 3, 4, 8, 12, 16, 20, 24, 28, 32, 48, 56, 64, 96] 
     M = d
     count = len(M_list)-1
     while M % M_list[count] != 0:
@@ -250,7 +260,9 @@ def IVFPQ_knn(data,k):
     M = M_list[count]
     index = faiss.index_factory(d, f"IVF4096,PQ{M}")
     co = faiss.GpuClonerOptions()
-    co.useFloat16 = True
+    
+    if M >= 56:
+        co.useFloat16 = True
 
     index = faiss.index_cpu_to_gpu(res, 0, index, co)
 
@@ -258,11 +270,15 @@ def IVFPQ_knn(data,k):
     t0 = time()
     # Create the index.
 
-    if n > int(6e6):
-        index.nprobe = 30
+    nprobe = 0
+    if n >= int(5e6):
+        nprobe = 20
+    elif n == int(3e6):
+        nprobe = 32
     else:
-        index.nprobe = 40
-
+        nprobe =  40
+    
+    index.setNumProbes(nprobe)
     index.train(data)
     index.add(data)
     _, indices = index.search(data, k)
@@ -309,15 +325,14 @@ rec_k = default_rec
 safe_repetitions = default_sr
 
 print(f"K = {K}, Recall@ = {rec_k} and  safe repetitions = {safe_repetitions}")
-dbs = {'SIFT1M':SIFT,
-        'SK-1M-2d': create_dataset(int(1e6),2)[0],
-        'SK-1M-10d':create_dataset(int(1e6),10)[0],
+dbs = {'SK-1M-2d': create_dataset(int(1e6),2)[0],
         'SK-1M-20d':create_dataset(int(1e6),20)[0],
-        'SK-1M-40d':create_dataset(int(1e6),40)[0],
-        'SK-2M-2d':create_dataset(int(2e6),2)[0],
-        'SK-5M-2d':create_dataset(int(5e6),2)[0],
-        'SK-10M-2d':create_dataset(int(10e6),2)[0],
-
+        'SK-1M-32d':create_dataset(int(1e6),32)[0],
+        'SIFT1M':SIFT,
+        'SK-1M-12d':create_dataset(int(1e6),12)[0],
+        'SK-5M-12d':create_dataset(int(5e6),12)[0],
+        'SK-10M-12d':create_dataset(int(10e6),12)[0],
+        'SK-13M-12d':create_dataset(int(13e6),12)[0],
       }
 
 #Agora métodos diferentes que encontram os KNN em GPU serão testados
@@ -384,7 +399,7 @@ for db in dbs:
             write_df(df_gpu,index,db,method,dim,n_sample,time_knn,rec_value,rec_k)
 
             #Exibe o tempo
-            print(f"Iteration -> {index} DB -> {db} Dim -> {dim} N -> {n_sample} Finished in {time_knn:.5} secs, method -> {method}, rep -> {reps}")            
+            print(f"Iteration -> {index} DB -> {db} Dim -> {dim} N -> {n_sample} Finished in {time_knn:.5} secs, method -> {method}, recall -> {rec_value} rep -> {reps}")            
 
 
 df_gpu.to_csv('raw_data_gpu.csv', index=False)
