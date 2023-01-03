@@ -237,7 +237,7 @@ in cuML
 
 ## Datasets
 
-- To begin with, as the GPU that is being used is GTX …, that have 8 GB of memory, the datasets can’t be so huge, as the brute force algorithm is going to be tested too
+- To begin with, as the GPU that is being used is NVIDIA **GeForce RTX 2080 Super**, that have 8 GB of memory, the datasets can’t be so huge, as the brute force algorithm is going to be tested too
 - But, the datasets need to be huge enough to use the GPU
     
     ### Real datasets
